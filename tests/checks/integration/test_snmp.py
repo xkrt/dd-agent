@@ -336,7 +336,8 @@ class SNMPTestCase(AgentCheckTest):
         config = {
             'instances': [self.generate_instance_config(self.FORCED_METRICS)]
         }
-        self.run_check(config)
+        self.run_check_twice(config)
+        self.service_checks = self.wait_for_async('get_service_checks', 'service_checks', 1)
 
         for metric in self.FORCED_METRICS:
             metric_name = "snmp." + (metric.get('name') or metric.get('symbol'))
