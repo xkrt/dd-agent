@@ -442,6 +442,7 @@ class SnmpCheck(NetworkCheck):
                 value = int(snmp_value)
                 self.rate(metric_name, value, tags)
             else:
+                self.warning("Invalid forced-type specified: {0} in {1}".format(forced_type, name))
                 raise Exception("Invalid forced-type in config file: {0}".format(name))
 
             return

@@ -356,15 +356,20 @@ class SNMPTestCase(AgentCheckTest):
 
     def test_invalid_forcedtype_metric(self):
         """
-        If a forced types is invalid an exception should be raised
+        If a forced type is invalid a warning should be issued + a service check
+        should be available
         """
         config = {
             'instances': [self.generate_instance_config(self.INVALID_FORCED_METRICS)]
         }
-        self.assertRaises(Exception, self.run_check, config)
 
+        self.run_check(config)
+
+        self.warnings = self.wait_for_async('get_warnings', 'warnings', 1)
+        self.assertWarning("Invalid forced-type specified:", count=1, exact_match=False)
 
         # # Test service check
+        self.service_checks = self.wait_for_async('get_service_checks', 'service_checks', 1)
         self.assertServiceCheck("snmp.can_check", status=AgentCheck.CRITICAL,
                                 tags=self.CHECK_TAGS, count=1)
         self.coverage_report()
