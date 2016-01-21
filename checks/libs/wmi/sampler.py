@@ -54,6 +54,7 @@ class HashableConnection(object):
         self.username = username
         self.password = password
         self._connection = None
+        self._connected = False
 
     def __hash__(self):
         return hash(repr(self))
@@ -63,15 +64,19 @@ class HashableConnection(object):
 
     @property
     def connection(self):
-        if self._connection is None:
+        if self._connection is None or not self._connected:
             pythoncom.CoInitialize()
             locator = Dispatch("WbemScripting.SWbemLocator")
             self._connection = locator.ConnectServer(
                 self.host, self.namespace,
                 self.username, self.password
             )
+            self._connected = True
 
         return self._connection
+
+    def done(self):
+        self._connected = False
 
 
 class WMISampler(object):
@@ -323,6 +328,7 @@ class WMISampler(object):
         yield wmiconn.connection
 
         # Release it
+        wmiconn.done()
         self._wmi_connections[self.connection_key].add(wmiconn)
 
     @staticmethod
