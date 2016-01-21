@@ -47,6 +47,32 @@ class CaseInsensitiveDict(dict):
     def get(self, key):
         return super(CaseInsensitiveDict, self).get(key.lower())
 
+class HashableConnection(object):
+    def __init__(self, host, namespace, username, password):
+        self.host = host
+        self.namespace = namespace
+        self.username = username
+        self.password = password
+        self._connection = None
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __eq__(self, other):
+        return (hash(repr(self)) == hash(repr(other)))
+
+    @property
+    def connection(self):
+        if self._connection is None:
+            pythoncom.CoInitialize()
+            locator = Dispatch("WbemScripting.SWbemLocator")
+            self._connection = locator.ConnectServer(
+                self.host, self.namespace,
+                self.username, self.password
+            )
+
+        return self._connection
+
 
 class WMISampler(object):
     """
@@ -261,7 +287,7 @@ class WMISampler(object):
 
         Release, i.e. mark as available at exit.
         """
-        connection = None
+        wmiconn = None
 
         # Fetch an existing connection or create a new one
         available_connections = self._wmi_connections[self.connection_key]
@@ -275,7 +301,7 @@ class WMISampler(object):
                     username=self.username
                 )
             )
-            connection = available_connections.pop()
+            wmiconn = available_connections.pop()
         else:
             self.logger.debug(
                 u"Connecting to WMI server "
@@ -286,18 +312,18 @@ class WMISampler(object):
                 )
             )
 
-            pythoncom.CoInitialize()
-            locator = Dispatch("WbemScripting.SWbemLocator")
-            connection = locator.ConnectServer(
-                self.host, self.namespace,
-                self.username, self.password
+            wmiconn = HashableConnection(
+                self.host,
+                self.namespace,
+                self.username,
+                self.password
             )
 
         # Yield the connection
-        yield connection
+        yield wmiconn.connection
 
         # Release it
-        self._wmi_connections[self.connection_key].add(connection)
+        self._wmi_connections[self.connection_key].add(wmiconn)
 
     @staticmethod
     def _format_filter(filters, and_props=[]):
