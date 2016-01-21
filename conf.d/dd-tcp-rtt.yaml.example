@@ -1,12 +1,19 @@
 init_config:
-    snaplen: 512
-    idle_ttl: 300
-    exp_ttl: 60
+    snaplen: 512            # should be >=104 (to accomodate for the largest possible TCP header)
+    idle_ttl: 300           # time after which an idle flow (no traffic received) is flushed.
+    exp_ttl: 60             # time after which a finished flow is flushed.
     statsd_ip: 127.0.0.1
     statsd_port: 8125
-    log_level: info
+    log_to_file: true
+    log_level: info         # available levels: trace, debug, info, warning, error, critical
 
 config:
-- interface: en0
-  tags: [mytag]
-  ips: []
+- interface: eth0
+  tags: [foo, bar]
+  ips: []                   # will perform name lookup and tag with hostname if available.
+  hosts: [myhost]           # will perform ip lookup and filter by hosts ip's
+
+# - interface: eth2           # multiple interfaces may be sniffed from.
+#   tags: [bar]
+#   ips: []                   # will perform name lookup and tag with hostname if available.
+#   hosts: [myhost]           # will perform ip lookup and filter by hosts ip's
