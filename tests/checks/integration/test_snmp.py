@@ -291,7 +291,7 @@ class SNMPTestCase(AgentCheckTest):
         config = {
             'instances': [self.generate_instance_config(self.TABULAR_OBJECTS)]
         }
-        self.run_check_n(config, repeat=3)
+        self.run_check_n(config, repeat=3, sleep=2)
         self.service_checks = self.wait_for_async('get_service_checks', 'service_checks', 1)
 
         # Test metrics
