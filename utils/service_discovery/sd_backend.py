@@ -100,21 +100,39 @@ class SDDockerBackend(ServiceDiscoveryBackend):
                     c_statuses = pod.get('status', {}).get('containerStatuses', [])
                     for status in c_statuses:
                         # compare the container id with those of containers in the current pod
-                        if c_id == status.get('containerID', '').split('//')[1]:
+                        if c_id == status.get('containerID', '').split('//')[-1]:
                             ip_addr = pod_ip
 
         return ip_addr
 
     def _get_port(self, container_inspect):
         """Extract the port from a docker inspect object."""
+        c_id = container_inspect.get('Id', '')
         try:
             port = container_inspect['NetworkSettings']['Ports'].keys()[0].split("/")[0]
         except (IndexError, KeyError, AttributeError):
             log.debug("Didn't find the port for container %s (%s), using the kubernetes way." %
-                      (container_inspect.get('Id', ''), container_inspect.get('Config', {}).get('Image', '')))
+                      (c_id, container_inspect.get('Config', {}).get('Image', '')))
             # kubernetes case
+            # first we try to get it from the docker API
+            # it works if the image has an EXPOSE instruction
             ports = container_inspect['Config'].get('ExposedPorts', {})
-            port = ports.keys()[0].split("/")[0] if ports else None
+            if ports:
+                port = ports.keys()[0].split("/")[0]
+            # if it fails, try with the kubernetes API
+            else:
+                co_statuses = self._get_kube_config(c_id, 'status').get('containerStatuses', [])
+                port, c_name = None, None
+                for co in co_statuses:
+                    if co.get('containerID', '').split('//')[-1] == c_id:
+                        c_name = co.get('name')
+                        break
+                containers = self._get_kube_config(c_id, 'spec').get('containers', [])
+                for co in containers:
+                    if co.get('name') == c_name:
+                        ports = map(lambda x: x.get('containerPort'), co.get('ports', []))
+                        # TODO: choose the port in a smarter way (over multiple check runs maybe)
+                        port = str(ports[0])
         return port
 
     def _get_tags(self, container_inspect):
@@ -155,7 +173,7 @@ class SDDockerBackend(ServiceDiscoveryBackend):
         for pod in pods:
             c_statuses = pod.get('status', {}).get('containerStatuses', [])
             for status in c_statuses:
-                if c_id == status.get('containerID', '').split('//')[1]:
+                if c_id == status.get('containerID', '').split('//')[-1]:
                     return pod.get(key, {})
 
     def _get_pod_list(self):
